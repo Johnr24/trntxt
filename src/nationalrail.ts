@@ -319,22 +319,19 @@ function processDarwinServices(aServices: [NrService], requestedStations: FromAn
   // Process arrival times only for upcoming services that need them
   Promise.all(aPromises).then(detailedServices => {
     const upcomingWithArrivals: TrntxtService[] = [];
-    let detailIndex = 0; // Keep track of which detailed service corresponds to which upcoming service
+    let detailIndex = 0; // Index for the detailedServices array
 
     for (let i = 0; i < upcomingOutput.length; i++) {
       const service = upcomingOutput[i];
-      let needsDetails = false;
-      // Check if this service corresponds to one of the promises we made
+
+      // Check if details were requested FOR THIS SERVICE and fetched successfully.
+      // We know details were requested globally if requestedStations.toStation is set.
+      // We assume a promise was pushed to aPromises earlier for *every* service
+      // currently in upcomingOutput *if* requestedStations.toStation was set.
+      // The results in detailedServices correspond positionally to the promises in aPromises.
       if (requestedStations.toStation) {
-          // Find if a promise was made for this serviceID (needed because promises array only contains those needing details)
-          const promiseIndex = aPromises.findIndex(p => p.serviceID === service.serviceID); // Assumes makePromiseForService attaches serviceID or similar context, which it doesn't currently. Let's rethink.
-          // Simpler: If toStation exists, *all* upcoming services had a promise created for them earlier.
-          needsDetails = true;
-      }
-
-
-      // Only process details if a toStation was requested for this service
-      if (needsDetails && aPromises.length > detailIndex && detailedServices[detailIndex]) {
+        // Check if we have a corresponding detail result at the current detailIndex
+        if (detailIndex < detailedServices.length && detailedServices[detailIndex]) {
           const arrival = getArrivalTimeForService(detailedServices[detailIndex], requestedStations.toStation);
           service.sta = arrival.sta;
           service.eta = arrival.eta;
@@ -342,26 +339,26 @@ function processDarwinServices(aServices: [NrService], requestedStations: FromAn
           service.correctStation = arrival.correctStation;
           const mins = getServiceTime(service);
           service.time = formatTime(mins);
-          detailIndex++; // Move to the next detailed service result
 
           // Only keep upcoming services that actually call at the destination
           if (service.correctStation) {
-              upcomingWithArrivals.push(service);
+            upcomingWithArrivals.push(service);
           }
-          // If !service.correctStation, it means the service runs but doesn't stop at the requested 'toStation'.
-          // We filter these out when a 'toStation' is specified.
-      } else if (!requestedStations.toStation) {
-          // If no toStation, keep the service as is (no arrival details needed/fetched)
-          upcomingWithArrivals.push(service);
-      } else if (needsDetails && (!detailedServices[detailIndex] || aPromises.length <= detailIndex)) {
-          // Handle case where detail fetch might have failed for a specific service or index mismatch
-          console.warn(`Missing or failed detail for service ID ${service.serviceID}. Skipping arrival info.`);
-          upcomingWithArrivals.push(service); // Keep service but without arrival details
-          if (aPromises.length > detailIndex) detailIndex++; // Increment index even on failure to avoid cascade
-      }
-      // If needsDetails was true but correctStation was false, it's implicitly filtered out by not being pushed.
-    }
+          // If !service.correctStation, it's filtered out here.
 
+        } else {
+          // Handle case where detail fetch might have failed for this specific service or index mismatch
+          console.warn(`Missing or failed detail for service ID ${service.serviceID}. Excluding service requiring destination.`);
+          // Do not push the service if destination details are required but failed/missing.
+        }
+        // Increment detailIndex because we consumed a potential slot in detailedServices
+        // corresponding to the promise made for this service.
+        detailIndex++;
+      } else {
+        // If no toStation, keep the service as is (no arrival details needed/fetched)
+        upcomingWithArrivals.push(service);
+      }
+    }
 
     // Return both lists
     return callback(null, { upcoming: upcomingWithArrivals, departed: recentlyDepartedServices });
