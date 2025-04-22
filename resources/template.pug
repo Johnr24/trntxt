@@ -9,7 +9,8 @@ html(lang="en")
       del= scheduled
     = ' (' + estimated + ')'
 
-  mixin serviceDetails(service, fromStation, toStation)
+  // Add 'departed' parameter to the mixin definition
+  mixin serviceDetails(service, fromStation, toStation, departed) // <-- ADD departed parameter
     br
     strong
       +time(service.std, service.etd)
@@ -18,7 +19,8 @@ html(lang="en")
     = 'Platform ' + (service.platform ? service.platform : 'unavailable')
     br
     = service.operator
-    if toStation
+    // Only show arrival details if a destination was requested AND the service has NOT departed
+    if toStation && !departed // <-- MODIFY condition to check !departed
       br
       = 'Arrives at ' + service.arrivalStation + ' at '
       strong
@@ -38,7 +40,8 @@ html(lang="en")
     each service in serviceArray
       // Add a class if the 'departed' flag is true
       div(class={g: service.etd == 'Cancelled', departed: departed})
-        +serviceDetails(service, fromStation, toStation)
+        // Pass the 'departed' flag down to serviceDetails
+        +serviceDetails(service, fromStation, toStation, departed) // <-- ADD departed parameter here
 
   head
     include head.pug
