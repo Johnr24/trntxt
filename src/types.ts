@@ -23,7 +23,8 @@ type NrService = any;
 type DepartureObject = {
   fromStation?: Station,
   toStation?: Station,
-  trainServices?: NrService[],
+  upcomingTrainServices?: NrService[], // <-- RENAME from trainServices
+  recentlyDepartedServices?: TrntxtService[], // <-- ADD
   busServices?: NrService[],
   nrccMessages?: [string]
 }
@@ -39,8 +40,9 @@ type DepartureResponse = {
   fromStation: string,
   toStation: string
 }
-
-type TrntxtService = any;
+type TrntxtService = any & { // Combine with existing 'any' or define specific properties
+  departureMinutes?: number; // <-- ADD (used internally for sorting)
+};
 
 type ArrivalAndDepartureTimes = {
   eta: string,

@@ -28,18 +28,15 @@ html(lang="en")
     br
     br
 
-  mixin services(header, serviceArray, fromStation, toStation)
+  mixin services(header, serviceArray, fromStation, toStation, departed) // Add 'departed' parameter
     hr
     br
     strong= header
     br
     each service in serviceArray
-      if service.etd == 'Cancelled'
-        div.g
-          +serviceDetails(service, fromStation, toStation)
-      else
-        div
-          +serviceDetails(service, fromStation, toStation)
+      // Add a class if the 'departed' flag is true
+      div(class={g: service.etd == 'Cancelled', departed: departed}) // Add departed class conditionally
+        +serviceDetails(service, fromStation, toStation)
 
   head
     include head.pug
@@ -75,13 +72,20 @@ html(lang="en")
       if departureObject.nrccMessages
         each message in departureObject.nrccMessages
           p.e!= message
-      if (departureObject.trainServices.length + departureObject.busServices.length === 0)
+      if ((departureObject.upcomingTrainServices ? departureObject.upcomingTrainServices.length : 0) + (departureObject.recentlyDepartedServices ? departureObject.recentlyDepartedServices.length : 0) + (departureObject.busServices ? departureObject.busServices.length : 0) === 0)
         p No services found. Trntxt only gives information for direct services.
-      if (departureObject.trainServices.length > 0)
-        +services('Train services', departureObject.trainServices, departureObject.fromStation, departureObject.toStation)
-      
-      if departureObject.busServices.length > 0
-        +services('Bus services',departureObject.busServices, departureObject.fromStation, departureObject.toStation)
+
+      // Recently Departed Trains
+      if departureObject.recentlyDepartedServices && departureObject.recentlyDepartedServices.length > 0
+        +services('Recently Departed Trains', departureObject.recentlyDepartedServices, departureObject.fromStation, departureObject.toStation, true) // Pass true for departed
+
+      // Upcoming Trains
+      if departureObject.upcomingTrainServices && departureObject.upcomingTrainServices.length > 0
+        +services('Upcoming Train services', departureObject.upcomingTrainServices, departureObject.fromStation, departureObject.toStation, false) // Pass false for departed
+
+      // Bus Services
+      if departureObject.busServices && departureObject.busServices.length > 0
+        +services('Bus services',departureObject.busServices, departureObject.fromStation, departureObject.toStation, false) // Pass false for departed
 
     hr
     include form.pug
