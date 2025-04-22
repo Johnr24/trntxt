@@ -240,99 +240,81 @@ function removeHtmlTagsExceptA(input: string): string {
   return input.replace(/<\/?((([^\/a>]|a[^> ])[^>]*)|)>/ig, '');
 }
 
-function processDarwinServices(aServices: [NrService], requestedStations: FromAndToStation, callback: (error: Error, services: { upcoming: TrntxtService[], departed: TrntxtService[] }) => void): void {
-  const upcomingOutput: TrntxtService[] = [];
-  const departedOutput: TrntxtService[] = [];
+function processDarwinServices(aServices: NrService[], requestedStations: FromAndToStation, callback: (error: Error, services: { upcoming: TrntxtService[], departed: TrntxtService[] }) => void): void {
+  // Ensure aServices is always an array
+  if (!Array.isArray(aServices)) {
+    aServices = aServices ? [aServices] : [];
+  }
+
+  const processedServices: TrntxtService[] = [];
   const aPromises: Promise<any>[] = []; // Explicitly type the array
 
-  const now = new Date();
-  // Calculate current time in minutes past midnight
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
+  // 1. Create basic service objects and prepare promises if needed
   for (let i = 0; i < aServices.length; i++) {
-    const service: TrntxtService = {}; // Create the basic service object
-    service.originStation = {
-      stationName: aServices[i].origin.location[0].locationName,
-      stationCode: aServices[i].origin.location[0].crs
+    const service: TrntxtService = {};
+    // Ensure origin and destination structures are valid before accessing properties
+    if (aServices[i]?.origin?.location?.[0]) {
+        service.originStation = {
+            stationName: aServices[i].origin.location[0].locationName,
+            stationCode: aServices[i].origin.location[0].crs
+        };
+    } else {
+        // Handle cases where origin might be missing (though unlikely for departures)
+        service.originStation = { stationName: 'Unknown', stationCode: '???' };
+        console.warn(`Service ${aServices[i]?.serviceID} missing origin information.`);
+    }
+
+    if (aServices[i]?.destination?.location?.[0]) {
+        service.destinationStation = {
+            stationName: aServices[i].destination.location[0].locationName,
+            stationCode: aServices[i].destination.location[0].crs
+        };
+    } else {
+        // Handle cases where destination might be missing
+        service.destinationStation = { stationName: 'Unknown', stationCode: '???' };
+        console.warn(`Service ${aServices[i]?.serviceID} missing destination information.`);
+    }
     };
     service.destinationStation = {
       stationName: aServices[i].destination.location[0].locationName,
       stationCode: aServices[i].destination.location[0].crs
     };
+    // Copy basic details
     service.std = aServices[i].std;
     service.etd = aServices[i].etd;
     service.platform = aServices[i].platform ? aServices[i].platform : null;
     service.operator = aServices[i].operator;
     service.serviceID = aServices[i].serviceID;
 
-    // Determine departure time in minutes
-    let departureMinutes = toMins(service.etd);
-    if (departureMinutes < 0) { // If etd is not a valid time (e.g., 'On time', 'Cancelled', 'Delayed')
-      departureMinutes = toMins(service.std); // Try std
-    }
+    processedServices.push(service); // Add the basic service object
 
-    // Categorize based on time
-    if (departureMinutes >= 0) { // Only categorize if we have a valid time
-      // Handle potential day rollover for sorting: if departure is much earlier than now, assume it was yesterday
-      const timeDiff = currentMinutes - departureMinutes;
-      // Check if departed: timeDiff is positive (departure is in the past)
-      // and less than 720 minutes (12 hours) ago.
-      // Also handle the midnight wrap-around: if timeDiff is large negative (e.g. -1380 for 23:00 vs 00:00), it means it departed yesterday.
-      // A simple check: if departureMinutes is significantly larger than currentMinutes, it likely belongs to the previous day.
-      const departedYesterday = departureMinutes > (currentMinutes + 60); // e.g., current 00:10 (10), departure 23:50 (1430)
-      const departedToday = timeDiff > 0 && timeDiff < 720; // Departed within the last 12 hours today
-
-      if (departedToday || departedYesterday) {
-        service.departureMinutes = departureMinutes; // Store for sorting
-        departedOutput.push(service);
-      } else { // Either in the future or departed long ago (treat as upcoming for display)
-        upcomingOutput.push(service);
-        // If it's an upcoming service and we need arrival times, prepare the promise
-        if (requestedStations.toStation) {
-          aPromises.push(makePromiseForService(service.serviceID));
-        }
-      }
-    } else {
-      // If no valid time (e.g., cancelled/delayed services yet to depart), assume it's upcoming
-      upcomingOutput.push(service);
-      // Still need arrival times for these if toStation is specified
-      if (requestedStations.toStation) {
-        aPromises.push(makePromiseForService(service.serviceID));
-      }
+    // If a destination is specified, prepare a promise to fetch its details
+    if (requestedStations.toStation && service.serviceID) {
+      aPromises.push(makePromiseForService(service.serviceID));
     }
   }
 
-  // Sort departed services (most recent first) and keep top 2
-  // Adjust sorting for midnight wrap-around: treat times just before midnight as later than times just after midnight
-  departedOutput.sort((a, b) => {
-      const aDepMins = a.departureMinutes;
-      const bDepMins = b.departureMinutes;
-      // Simple approach: if one time is < 120 (before 2 AM) and the other is > 1320 (after 10 PM),
-      // assume the > 1320 time is more recent (yesterday evening vs today morning).
-      if (aDepMins < 120 && bDepMins > 1320) return 1; // b is more recent
-      if (bDepMins < 120 && aDepMins > 1320) return -1; // a is more recent
-      // Otherwise, normal descending sort
-      return bDepMins - aDepMins;
-  });
-  const recentlyDepartedServices = departedOutput.slice(0, 2);
-
-  // Process arrival times only for upcoming services that need them
+  // 2. Fetch details if needed
   Promise.all(aPromises).then(detailedServices => {
-    const upcomingWithArrivals: TrntxtService[] = [];
-    let detailIndex = 0; // Index for the detailedServices array
+    // Create a map for easy lookup of details by serviceID
+    const detailsMap = new Map<string, any>();
+    detailedServices.forEach(detail => {
+      if (detail?.GetServiceDetailsResult?.serviceID) {
+        detailsMap.set(detail.GetServiceDetailsResult.serviceID, detail);
+      }
+    });
 
-    for (let i = 0; i < upcomingOutput.length; i++) {
-      const service = upcomingOutput[i];
+    const finalServices: TrntxtService[] = [];
 
-      // Check if details were requested FOR THIS SERVICE and fetched successfully.
-      // We know details were requested globally if requestedStations.toStation is set.
-      // We assume a promise was pushed to aPromises earlier for *every* service
-      // currently in upcomingOutput *if* requestedStations.toStation was set.
-      // The results in detailedServices correspond positionally to the promises in aPromises.
+    // 3. Augment services with arrival details and filter
+    for (let i = 0; i < processedServices.length; i++) {
+      const service = processedServices[i];
+      let keepService = true; // Assume we keep the service unless filtered out
+
       if (requestedStations.toStation) {
-        // Check if we have a corresponding detail result at the current detailIndex
-        if (detailIndex < detailedServices.length && detailedServices[detailIndex]) {
-          const arrival = getArrivalTimeForService(detailedServices[detailIndex], requestedStations.toStation);
+        const detail = detailsMap.get(service.serviceID);
+        if (detail) {
+          const arrival = getArrivalTimeForService(detail, requestedStations.toStation);
           service.sta = arrival.sta;
           service.eta = arrival.eta;
           service.arrivalStation = arrival.arrivalStation;
@@ -340,74 +322,170 @@ function processDarwinServices(aServices: [NrService], requestedStations: FromAn
           const mins = getServiceTime(service);
           service.time = formatTime(mins);
 
-          // Only keep upcoming services that actually call at the destination
-          if (service.correctStation) {
-            upcomingWithArrivals.push(service);
+          // Filter out services that don't call at the requested 'to' station
+          if (!service.correctStation) {
+            keepService = false;
           }
-          // If !service.correctStation, it's filtered out here.
-
         } else {
-          // Handle case where detail fetch might have failed for this specific service or index mismatch
-          console.warn(`Missing or failed detail for service ID ${service.serviceID}. Excluding service requiring destination.`);
-          // Do not push the service if destination details are required but failed/missing.
+          // If details were required but couldn't be fetched, filter out the service
+          console.warn(`Details required but not found/fetched for service ${service.serviceID}. Filtering out.`);
+          keepService = false;
         }
-        // Increment detailIndex because we consumed a potential slot in detailedServices
-        // corresponding to the promise made for this service.
-        detailIndex++;
-      } else {
-        // If no toStation, keep the service as is (no arrival details needed/fetched)
-        upcomingWithArrivals.push(service);
+      }
+
+      if (keepService) {
+        finalServices.push(service);
       }
     }
 
-    // Return both lists
-    return callback(null, { upcoming: upcomingWithArrivals, departed: recentlyDepartedServices });
+    // 4. Categorize filtered services into upcoming and departed
+    const upcomingOutput: TrntxtService[] = [];
+    const departedOutput: TrntxtService[] = [];
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  }, error => {
-    console.error("Error fetching service details:", error);
-    // Decide how to handle partial failure: return only departed? Return upcoming without arrival times?
-    // For now, return upcoming without arrival times and the departed list.
-    const upcomingWithoutArrivals = upcomingOutput.map(service => {
-        // Remove any potentially stale arrival data if details failed
-        delete service.sta;
-        delete service.eta;
-        delete service.arrivalStation;
-        delete service.correctStation;
-        delete service.time;
-        return service;
+    for (let i = 0; i < finalServices.length; i++) {
+        const service = finalServices[i];
+        let departureMinutes = toMins(service.etd);
+        if (departureMinutes < 0) {
+            departureMinutes = toMins(service.std);
+        }
+
+        if (departureMinutes >= 0) {
+            const timeDiff = currentMinutes - departureMinutes;
+            const departedYesterday = departureMinutes > (currentMinutes + 60); // Approx check for yesterday
+            const departedToday = timeDiff > 0 && timeDiff < 720; // Departed within last 12 hours today
+
+            if (departedToday || departedYesterday) {
+                service.departureMinutes = departureMinutes; // Store for sorting
+                departedOutput.push(service);
+            } else {
+                upcomingOutput.push(service);
+            }
+        } else {
+            // Services without a valid time (e.g., cancelled before departure) go to upcoming
+            upcomingOutput.push(service);
+        }
+    }
+
+    // 5. Sort departed services and take top 2
+    departedOutput.sort((a, b) => {
+        const aDepMins = a.departureMinutes;
+        const bDepMins = b.departureMinutes;
+        if (aDepMins < 120 && bDepMins > 1320) return 1; // b is more recent (yesterday evening vs today morning)
+        if (bDepMins < 120 && aDepMins > 1320) return -1; // a is more recent
+        return bDepMins - aDepMins; // Normal descending sort
     });
-    return callback(null, { upcoming: upcomingWithoutArrivals, departed: recentlyDepartedServices });
+    const recentlyDepartedServices = departedOutput.slice(0, 2);
+
+    // 6. Return results
+    return callback(null, { upcoming: upcomingOutput, departed: recentlyDepartedServices });
+
+  }).catch(error => {
+    // Handle errors during detail fetching
+    console.error("Error fetching service details:", error);
+    // Fallback: Categorize without arrival details
+    const upcomingOutput: TrntxtService[] = [];
+    const departedOutput: TrntxtService[] = [];
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    for (let i = 0; i < processedServices.length; i++) {
+        const service = processedServices[i];
+        // Filter out services if 'toStation' was requested but details failed
+        if (requestedStations.toStation) {
+            console.warn(`Excluding service ${service.serviceID} due to failed detail fetch.`);
+            continue; // Skip this service
+        }
+
+        let departureMinutes = toMins(service.etd);
+        if (departureMinutes < 0) {
+            departureMinutes = toMins(service.std);
+        }
+
+        if (departureMinutes >= 0) {
+            const timeDiff = currentMinutes - departureMinutes;
+            const departedYesterday = departureMinutes > (currentMinutes + 60);
+            const departedToday = timeDiff > 0 && timeDiff < 720;
+
+            if (departedToday || departedYesterday) {
+                service.departureMinutes = departureMinutes;
+                departedOutput.push(service);
+            } else {
+                upcomingOutput.push(service);
+            }
+        } else {
+            upcomingOutput.push(service);
+        }
+    }
+
+    departedOutput.sort((a, b) => {
+        const aDepMins = a.departureMinutes;
+        const bDepMins = b.departureMinutes;
+        if (aDepMins < 120 && bDepMins > 1320) return 1;
+        if (bDepMins < 120 && aDepMins > 1320) return -1;
+        return bDepMins - aDepMins;
+    });
+    const recentlyDepartedServices = departedOutput.slice(0, 2);
+
+    return callback(null, { upcoming: upcomingOutput, departed: recentlyDepartedServices });
   });
 }
 
 
-function getArrivalTimeForService(service: any, toStation: Station): ArrivalTime {
-  const output: ArrivalTime = {};
-  const callingPointArray = service.GetServiceDetailsResult.subsequentCallingPoints.callingPointList[0].callingPoint;
+function getArrivalTimeForService(serviceDetailsResult: any, toStation: Station): ArrivalTime {
+  const output: ArrivalTime = { correctStation: false }; // Default to false
+
+  // Check if the expected structure exists
+  const callingPointsList = serviceDetailsResult?.GetServiceDetailsResult?.subsequentCallingPoints?.callingPointList;
+  if (!callingPointsList || !Array.isArray(callingPointsList) || callingPointsList.length === 0) {
+    console.warn(`Service ${serviceDetailsResult?.GetServiceDetailsResult?.serviceID}: No subsequent calling points found.`);
+    return output; // Return default (correctStation: false)
+  }
+
+  // Assuming the first element of callingPointList contains the relevant array
+  const callingPointArray = callingPointsList[0]?.callingPoint;
+  if (!Array.isArray(callingPointArray)) {
+     console.warn(`Service ${serviceDetailsResult?.GetServiceDetailsResult?.serviceID}: Subsequent calling points format unexpected.`);
+     return output;
+  }
+
   for (let i = 0; i < callingPointArray.length; i++) {
-    if (callingPointArray[i].crs === toStation.stationCode) {
-      output.sta = callingPointArray[i].st;
-      output.eta = callingPointArray[i].et;
-      output.arrivalStation = getStationNameFromCrs(toStation.stationCode);
-      output.correctStation = true;
-      break;
-    } else if (i === callingPointArray.length - 1) {
-      output.sta = callingPointArray[i].st;
-      output.eta = callingPointArray[i].et;
-      output.arrivalStation = getStationNameFromCrs(callingPointArray[i].crs);
-      output.correctStation = false;
+    const point = callingPointArray[i];
+    if (point?.crs === toStation.stationCode) {
+      output.sta = point.st;
+      output.eta = point.et;
+      output.arrivalStation = getStationNameFromCrs(point.crs); // Use the actual station code from the data
+      output.correctStation = true; // Found the requested station
+      break; // Stop searching
     }
   }
+
+  // If the loop finishes without finding the station, correctStation remains false.
+  // We don't need the 'else if' part that previously assigned the last station.
   return output;
 }
 
-function makePromiseForService(serviceId: string): Promise<NrService> {
+
+function makePromiseForService(serviceId: string): Promise<any> { // Return type any as SOAP result varies
   const options = { serviceID: serviceId };
   return new Promise((resolve, reject) => {
     soap.createClient(soapUrl, (err: Error, client: any) => {
+      if (err) {
+        console.error(`SOAP client creation failed for service ${serviceId}:`, err);
+        return reject(err); // Reject promise if client creation fails
+      }
       client.addSoapHeader(soapHeader);
       client.GetServiceDetails(options, (err: Error, result: any) => {
-        if (err) return reject(err);
+        if (err) {
+          // Log error but resolve with null to avoid breaking Promise.all for one failed service
+          console.error(`GetServiceDetails failed for service ${serviceId}:`, err);
+          return resolve(null);
+        }
+        // Add serviceID to the result for easier mapping later
+        if (result?.GetServiceDetailsResult) {
+            result.GetServiceDetailsResult.serviceID = serviceId;
+        }
         return resolve(result);
       });
     });

@@ -18,9 +18,10 @@ html(lang="en")
     = 'Platform ' + (service.platform ? service.platform : 'unavailable')
     br
     = service.operator
-    if toStation && !departed
+    // Display arrival details if toStation is provided, regardless of departed status
+    if toStation
       br
-      = 'Arrives at ' + service.arrivalStation + ' at '
+      = 'Arrives at ' + (service.arrivalStation ? service.arrivalStation : toStation.stationName) + ' at ' // Fallback to requested name if needed
       strong
         +time(service.sta, service.eta)
       if service.time
