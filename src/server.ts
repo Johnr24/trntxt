@@ -99,11 +99,11 @@ app.get('/api/departures/:from(\\w+)/:to(\\w+)?', cors(), (request, response) =>
 
   nr.getDepartures(stations, (err, nrResponse) => {
     if (stations['toStation']) {
-      console.log(`API request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) to ${stations['toStation'].stationName} (${stations['toStation'].stationCode}) returned ${nrResponse.departureObject.trainServices?.length} train services and ${nrResponse.departureObject.busServices?.length} bus services`);
+      console.log(`API request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) to ${stations['toStation'].stationName} (${stations['toStation'].stationCode}) returned ${nrResponse.departureObject.upcomingTrainServices?.length} train services and ${nrResponse.departureObject.busServices?.length} bus services`);
     } else {
-      console.log(`API request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) returned ${nrResponse.departureObject.trainServices?.length} train services and ${nrResponse.departureObject.busServices?.length} bus services`);
+      console.log(`API request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) returned ${nrResponse.departureObject.upcomingTrainServices?.length} train services and ${nrResponse.departureObject.busServices?.length} bus services`);
     }
-    output['departures'] = nrResponse.departureObject.trainServices;
+    output['departures'] = nrResponse.departureObject.upcomingTrainServices;
     output['warnings'] = nrResponse.departureObject.nrccMessages;
     return response.set('Cache-Control', 'public, max-age=20').send(output);
   });
@@ -128,9 +128,9 @@ app.get('/:from(\\w+)/:to(\\w+)?', (request, response) => {
 
   nr.getDepartures(stations, (error, departureResponse) => {
     if (stations['toStation']) {
-      console.log(`HTML request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) to ${stations['toStation'].stationName} (${stations['toStation'].stationCode}) returned ${departureResponse?.departureObject.trainServices?.length} train services and ${departureResponse?.departureObject.busServices?.length} bus services`);
+      console.log(`HTML request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) to ${stations['toStation'].stationName} (${stations['toStation'].stationCode}) returned ${departureResponse?.departureObject.upcomingTrainServices?.length} train services and ${departureResponse?.departureObject.busServices?.length} bus services`);
     } else {
-      console.log(`HTML request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) returned ${departureResponse?.departureObject.trainServices?.length} train services and ${departureResponse?.departureObject.busServices?.length} bus services`);
+      console.log(`HTML request for departures from ${stations['fromStation'].stationName} (${stations['fromStation'].stationCode}) returned ${departureResponse?.departureObject.upcomingTrainServices?.length} train services and ${departureResponse?.departureObject.busServices?.length} bus services`);
     }
     response.set('Cache-Control', 'public, max-age=20');
     response.send(compile(extend({}, locals, error, departureResponse)));
