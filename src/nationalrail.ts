@@ -274,10 +274,13 @@ function processDarwinServices(aServices: NrService[], requestedStations: FromAn
         service.destinationStation = { stationName: 'Unknown', stationCode: '???' };
         console.warn(`Service ${aServices[i]?.serviceID} missing destination information.`);
     }
-    };
-    service.destinationStation = {
-      stationName: aServices[i].destination.location[0].locationName,
-      stationCode: aServices[i].destination.location[0].crs
+    // Removed extra closing brace here
+    // Copy basic details
+    service.std = aServices[i].std;
+    service.etd = aServices[i].etd;
+    service.platform = aServices[i].platform ? aServices[i].platform : null;
+    service.operator = aServices[i].operator;
+    service.serviceID = aServices[i].serviceID;
     };
     // Copy basic details
     service.std = aServices[i].std;
