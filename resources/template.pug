@@ -10,23 +10,33 @@ html(lang="en")
     = ' (' + estimated + ')'
 
   // Add 'departed' parameter to the mixin definition
-  mixin serviceDetails(service, fromStation, toStation, departed) // <-- ADD departed parameter
+  mixin serviceDetails(service, fromStation, toStation, departed) // <-- Line 13
+    // Ensure these lines are indented 2 spaces relative to the 'mixin' line
     br
     strong
+      // Ensure this line is indented 4 spaces relative to 'mixin'
       +time(service.std, service.etd)
+      // Ensure this line is indented 4 spaces relative to 'mixin'
       = ' to ' + service.destinationStation.stationName
+    // Ensure these lines are indented 2 spaces relative to 'mixin'
     br
     = 'Platform ' + (service.platform ? service.platform : 'unavailable')
     br
     = service.operator
     // Only show arrival details if a destination was requested AND the service has NOT departed
-    if toStation && !departed // <-- MODIFY condition to check !departed
+    // Ensure this 'if' is indented 2 spaces relative to 'mixin'
+    if toStation && !departed
+      // Ensure these lines are indented 4 spaces relative to 'mixin'
       br
       = 'Arrives at ' + service.arrivalStation + ' at '
       strong
+        // Ensure this line is indented 6 spaces relative to 'mixin'
         +time(service.sta, service.eta)
+      // Ensure this 'if' is indented 4 spaces relative to 'mixin'
       if service.time
+        // Ensure this line is indented 6 spaces relative to 'mixin'
         = ', ' + service.time
+    // Ensure these lines are indented 2 spaces relative to 'mixin'
     br
     br
 
