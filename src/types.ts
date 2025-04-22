@@ -7,7 +7,7 @@ type Station = {
 
 class FromAndToStation {
   fromStation: Station;
-  toStation: Station;
+  toStation?: Station; // <-- ADD the '?' here to make the property optional
   didYouMean?: {
     from: Station[],
     to: Station[]
