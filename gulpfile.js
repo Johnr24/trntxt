@@ -8,6 +8,12 @@ var sourcemaps = require('gulp-sourcemaps');
 var uglify = require('gulp-uglify');
 var pump = require('pump');
 var fs = require('fs');
+var SourceMapConsumer = require('source-map').SourceMapConsumer; // <-- ADD
+
+// Add this initialization call after the require statements, before the tasks:
+SourceMapConsumer.initialize({ // <-- ADD this block
+  "lib/mappings.wasm": "node_modules/source-map/lib/mappings.wasm"
+});
 
 var tsProject = ts.createProject('tsconfig.json');
 
