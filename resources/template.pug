@@ -21,7 +21,7 @@ html(lang="en")
     // Display arrival details if toStation is provided, regardless of departed status
     if toStation
       br
-      = 'Arrives at ' + (service.arrivalStation ? service.arrivalStation : toStation.stationName) + ' at ' // Fallback to requested name if needed
+      = 'Arrives at ' + (service.arrivalStation ? service.arrivalStation : toStation.stationName) + ' at '
       strong
         +time(service.sta, service.eta)
       if service.time
