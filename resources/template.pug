@@ -12,7 +12,11 @@ html(lang="en")
   mixin serviceDetails(service, fromStation, toStation, departed)
     br
     strong
-      +time(service.std, service.etd)
+      //- If departed, show scheduled time and "(Departed)". Otherwise, use the time mixin.
+      if departed
+        = service.std + ' (Departed)'
+      else
+        +time(service.std, service.etd)
       = ' to ' + service.destinationStation.stationName
     br
     = 'Platform ' + (service.platform ? service.platform : 'unavailable')
