@@ -243,7 +243,7 @@ function removeHtmlTagsExceptA(input: string): string {
 function processDarwinServices(aServices: [NrService], requestedStations: FromAndToStation, callback: (error: Error, services: { upcoming: TrntxtService[], departed: TrntxtService[] }) => void): void {
   const upcomingOutput: TrntxtService[] = [];
   const departedOutput: TrntxtService[] = [];
-  const aPromises = [];
+  const aPromises: Promise<any>[] = []; // Explicitly type the array
 
   const now = new Date();
   // Calculate current time in minutes past midnight
