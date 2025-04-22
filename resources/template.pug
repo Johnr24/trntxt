@@ -28,13 +28,14 @@ html(lang="en")
     br
     br
 
-  mixin services(header, serviceArray, fromStation, toStation, departed) // Add 'departed' parameter
+  // Add 'departed' parameter
+  // Add a class if the 'departed' flag is true
+  mixin services(header, serviceArray, fromStation, toStation, departed)
     hr
     br
     strong= header
     br
     each service in serviceArray
-      // Add a class if the 'departed' flag is true
       div(class={g: service.etd == 'Cancelled', departed: departed}) // Add departed class conditionally
         +serviceDetails(service, fromStation, toStation)
 
