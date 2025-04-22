@@ -281,13 +281,7 @@ function processDarwinServices(aServices: NrService[], requestedStations: FromAn
     service.platform = aServices[i].platform ? aServices[i].platform : null;
     service.operator = aServices[i].operator;
     service.serviceID = aServices[i].serviceID;
-    };
-    // Copy basic details
-    service.std = aServices[i].std;
-    service.etd = aServices[i].etd;
-    service.platform = aServices[i].platform ? aServices[i].platform : null;
-    service.operator = aServices[i].operator;
-    service.serviceID = aServices[i].serviceID;
+    // Removed duplicated block below
 
     processedServices.push(service); // Add the basic service object
 
@@ -301,7 +295,8 @@ function processDarwinServices(aServices: NrService[], requestedStations: FromAn
   Promise.all(aPromises).then(detailedServices => {
     // Create a map for easy lookup of details by serviceID
     const detailsMap = new Map<string, any>();
-    detailedServices.forEach(detail => {
+    // Add explicit type for 'detail' parameter
+    detailedServices.forEach((detail: any) => {
       if (detail?.GetServiceDetailsResult?.serviceID) {
         detailsMap.set(detail.GetServiceDetailsResult.serviceID, detail);
       }
