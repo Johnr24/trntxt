@@ -42,9 +42,9 @@ gulp.task('copy', function(cb) {
 
 gulp.task('compile', function() {
   return tsProject.src()
-    .pipe(sourcemaps.init())
+    // .pipe(sourcemaps.init())
     .pipe(tsProject())
-    .pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: './' }))
+    // .pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: './' }))
     .pipe(gulp.dest('./dist'));
 });
 
