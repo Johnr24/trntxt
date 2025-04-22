@@ -36,7 +36,8 @@ html(lang="en")
     strong= header
     br
     each service in serviceArray
-      div(class={g: service.etd == 'Cancelled', departed: departed}) // Add departed class conditionally
+      // Add a class if the 'departed' flag is true
+      div(class={g: service.etd == 'Cancelled', departed: departed})
         +serviceDetails(service, fromStation, toStation)
 
   head
