@@ -8,8 +8,19 @@ body {
   margin: auto;
 }
 
+h2 {
+  text-align: left; /* Explicitly left-align header */
+  margin-bottom: 1em; /* Add some space below header */
+  font-weight: normal; /* Make header text normal weight */
+}
+
+h2 a {
+  text-decoration: none; /* Remove underline from header link */
+  color: inherit; /* Make header link inherit text color */
+}
+
 a {
-  color: #184ee7;
+  color: #184ee7; /* Default link color */
 }
 
 /* Error message */
