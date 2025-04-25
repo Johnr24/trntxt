@@ -132,12 +132,9 @@ function getDepartureObject(requestedStations: FromAndToStation, callback: (err:
   output.fromStation = requestedStations.fromStation;
   if (requestedStations.toStation !== undefined) output.toStation = requestedStations.toStation;
 
-  const options: { numRows?: number, crs: string, filterCrs?: string, timeOffset?: number, timeWindow?: number } = { // Added timeWindow (though not directly used below, kept for context)
+  const options: { numRows?: number, crs: string, filterCrs?: string, timeOffset?: number, timeWindow?: number } = {
     crs: requestedStations.fromStation.stationCode,
-    // Fetch a wider window to potentially catch recently departed trains
-    // Darwin default is -60 to +60. Let's try -90 to +120 (total 210 mins). Max window is 120. Let's use offset.
-    // Fetch current board first (default offset 0, default window 120)
-    // Then fetch previous board (offset -119, default window 120)
+    numRows: 20 // Fetch more rows to ensure we get enough data for both upcoming and departed
   };
   if (requestedStations.toStation !== undefined) {
     options.filterCrs = requestedStations.toStation.stationCode;
@@ -148,8 +145,8 @@ function getDepartureObject(requestedStations: FromAndToStation, callback: (err:
     client.addSoapHeader(soapHeader);
 
     // Make two calls: one for current/future, one for past
-    const currentOptions = { ...options }; // Default offset 0
-    const pastOptions = { ...options, timeOffset: -119 }; // Look back ~2 hours
+    const currentOptions = { ...options }; // Default offset 0, default window 120
+    const pastOptions = { ...options, timeOffset: -120, timeWindow: 120 }; // Look back 2 hours
 
     Promise.all([
       new Promise((resolve, reject) => client.GetDepartureBoard(currentOptions, (err: Error, result: any) => err ? reject(err) : resolve(result))),
@@ -158,24 +155,23 @@ function getDepartureObject(requestedStations: FromAndToStation, callback: (err:
       const currentResult = results[0];
       const pastResult = results[1];
 
-      // Combine services, ensuring uniqueness based on serviceID
-      const serviceMap = new Map<string, NrService>();
+      // Process current services for upcoming trains
+      const upcomingServices: NrService[] = [];
+      if (currentResult?.GetStationBoardResult?.trainServices?.service) {
+        const services = Array.isArray(currentResult.GetStationBoardResult.trainServices.service)
+          ? currentResult.GetStationBoardResult.trainServices.service
+          : [currentResult.GetStationBoardResult.trainServices.service];
+        upcomingServices.push(...services);
+      }
 
-      const processResults = (result: any) => {
-        if (result?.GetStationBoardResult?.trainServices?.service) {
-          // Ensure service is an array even if only one is returned
-          const services = Array.isArray(result.GetStationBoardResult.trainServices.service)
-            ? result.GetStationBoardResult.trainServices.service
-            : [result.GetStationBoardResult.trainServices.service];
-          services.forEach((s: NrService) => serviceMap.set(s.serviceID, s));
-        }
-        // Note: Ignoring bus services for departed logic for now
-      };
-
-      processResults(pastResult); // Process past first, so current overrides duplicates
-      processResults(currentResult);
-
-      const combinedTrainServices = Array.from(serviceMap.values());
+      // Process past services for departed trains
+      const departedServices: NrService[] = [];
+      if (pastResult?.GetStationBoardResult?.trainServices?.service) {
+        const services = Array.isArray(pastResult.GetStationBoardResult.trainServices.service)
+          ? pastResult.GetStationBoardResult.trainServices.service
+          : [pastResult.GetStationBoardResult.trainServices.service];
+        departedServices.push(...services);
+      }
 
       // Handle NRCC messages (prefer current result's messages)
       if (currentResult?.GetStationBoardResult?.nrccMessages) {
@@ -191,32 +187,53 @@ function getDepartureObject(requestedStations: FromAndToStation, callback: (err:
         }
       }
 
-      // Process the combined list
-      processDarwinServices(combinedTrainServices as [NrService], requestedStations, (err, processedServices) => {
-        if (err) return callback(err); // Handle error from processDarwinServices
+      // Process upcoming services
+      processDarwinServices(upcomingServices as [NrService], requestedStations, false, (err, upcomingProcessed) => {
+        if (err) return callback(err);
+        
+        output.upcomingTrainServices = upcomingProcessed;
+        
+        // Process departed services separately
+        processDarwinServices(departedServices as [NrService], requestedStations, true, (err, departedProcessed) => {
+          if (err) {
+            console.error("Error processing departed services:", err);
+            output.recentlyDepartedServices = []; // Empty on error
+          } else {
+            // Sort departed services by departure time (most recent first)
+            departedProcessed.sort((a, b) => {
+              const aTime = toMins(a.std);
+              const bTime = toMins(b.std);
+              // Handle day boundary (e.g., 23:45 vs 00:15)
+              if (Math.abs(aTime - bTime) > 720) {
+                return aTime > bTime ? -1 : 1; // Reverse for day boundary
+              }
+              return bTime - aTime; // Most recent first
+            });
+            
+            // Take only the 2 most recent
+            output.recentlyDepartedServices = departedProcessed.slice(0, 2);
+          }
+          
+          // Handle Bus Services (using only current results)
+          let aBusServices = currentResult?.GetStationBoardResult?.busServices ? currentResult.GetStationBoardResult.busServices.service : [];
+          // Ensure bus services is an array
+          if (aBusServices && !Array.isArray(aBusServices)) {
+              aBusServices = [aBusServices];
+          } else if (!aBusServices) {
+              aBusServices = [];
+          }
 
-        output.upcomingTrainServices = processedServices.upcoming;
-        output.recentlyDepartedServices = processedServices.departed;
-
-        // Handle Bus Services (using only current results for simplicity)
-        let aBusServices = currentResult?.GetStationBoardResult?.busServices ? currentResult.GetStationBoardResult.busServices.service : [];
-        // Ensure bus services is an array
-        if (aBusServices && !Array.isArray(aBusServices)) {
-            aBusServices = [aBusServices];
-        } else if (!aBusServices) {
-            aBusServices = [];
-        }
-
-        // Process bus services (assuming they don't need departed logic)
-         processDarwinServices(aBusServices, { fromStation: requestedStations.fromStation }, (err, busResult) => {
-           if (err) {
-             console.error("Error processing bus services:", err);
-             output.busServices = []; // Assign empty on error
-           } else {
-             output.busServices = busResult.upcoming; // Assign only upcoming buses
-           }
-           return callback(null, output); // Final callback
-         });
+          // Process bus services (no departed logic for buses)
+          processDarwinServices(aBusServices, { fromStation: requestedStations.fromStation }, false, (err, busResult) => {
+            if (err) {
+              console.error("Error processing bus services:", err);
+              output.busServices = []; // Assign empty on error
+            } else {
+              output.busServices = busResult; // Assign processed buses
+            }
+            return callback(null, output); // Final callback
+          });
+        });
       });
 
     }).catch(err => {
@@ -240,7 +257,7 @@ function removeHtmlTagsExceptA(input: string): string {
   return input.replace(/<\/?((([^\/a>]|a[^> ])[^>]*)|)>/ig, '');
 }
 
-function processDarwinServices(aServices: NrService[], requestedStations: FromAndToStation, callback: (error: Error, services: { upcoming: TrntxtService[], departed: TrntxtService[] }) => void): void {
+function processDarwinServices(aServices: NrService[], requestedStations: FromAndToStation, isDeparted: boolean, callback: (error: Error, services: TrntxtService[]) => void): void {
   // Ensure aServices is always an array
   if (!Array.isArray(aServices)) {
     aServices = aServices ? [aServices] : [];
@@ -274,14 +291,25 @@ function processDarwinServices(aServices: NrService[], requestedStations: FromAn
         service.destinationStation = { stationName: 'Unknown', stationCode: '???' };
         console.warn(`Service ${aServices[i]?.serviceID} missing destination information.`);
     }
-    // Removed extra closing brace here
+    
     // Copy basic details
     service.std = aServices[i].std;
     service.etd = aServices[i].etd;
     service.platform = aServices[i].platform ? aServices[i].platform : null;
     service.operator = aServices[i].operator;
     service.serviceID = aServices[i].serviceID;
-    // Removed duplicated block below
+    
+    // For departed services, check if they're actually in the past
+    if (isDeparted) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const departureMinutes = toMins(service.std);
+      
+      // Skip if this is actually a future service
+      if (departureMinutes > currentMinutes && (departureMinutes - currentMinutes) < 120) {
+        continue; // This is a future service, skip it
+      }
+    }
 
     processedServices.push(service); // Add the basic service object
 
@@ -336,97 +364,19 @@ function processDarwinServices(aServices: NrService[], requestedStations: FromAn
       }
     }
 
-    // 4. Categorize filtered services into upcoming and departed
-    const upcomingOutput: TrntxtService[] = [];
-    const departedOutput: TrntxtService[] = [];
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    for (let i = 0; i < finalServices.length; i++) {
-        const service = finalServices[i];
-        let departureMinutes = toMins(service.etd);
-        if (departureMinutes < 0) {
-            departureMinutes = toMins(service.std);
-        }
-
-        if (departureMinutes >= 0) {
-            const timeDiff = currentMinutes - departureMinutes;
-            const departedYesterday = departureMinutes > (currentMinutes + 60); // Approx check for yesterday
-            const departedToday = timeDiff > 0 && timeDiff < 720; // Departed within last 12 hours today
-
-            if (departedToday || departedYesterday) {
-                service.departureMinutes = departureMinutes; // Store for sorting
-                departedOutput.push(service);
-            } else {
-                upcomingOutput.push(service);
-            }
-        } else {
-            // Services without a valid time (e.g., cancelled before departure) go to upcoming
-            upcomingOutput.push(service);
-        }
-    }
-
-    // 5. Sort departed services and take top 2
-    departedOutput.sort((a, b) => {
-        const aDepMins = a.departureMinutes;
-        const bDepMins = b.departureMinutes;
-        if (aDepMins < 120 && bDepMins > 1320) return 1; // b is more recent (yesterday evening vs today morning)
-        if (bDepMins < 120 && aDepMins > 1320) return -1; // a is more recent
-        return bDepMins - aDepMins; // Normal descending sort
-    });
-    const recentlyDepartedServices = departedOutput.slice(0, 2);
-
-    // 6. Return results
-    return callback(null, { upcoming: upcomingOutput, departed: recentlyDepartedServices });
+    return callback(null, finalServices);
 
   }).catch(error => {
     // Handle errors during detail fetching
     console.error("Error fetching service details:", error);
-    // Fallback: Categorize without arrival details
-    const upcomingOutput: TrntxtService[] = [];
-    const departedOutput: TrntxtService[] = [];
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    for (let i = 0; i < processedServices.length; i++) {
-        const service = processedServices[i];
-        // Filter out services if 'toStation' was requested but details failed
-        if (requestedStations.toStation) {
-            console.warn(`Excluding service ${service.serviceID} due to failed detail fetch.`);
-            continue; // Skip this service
-        }
-
-        let departureMinutes = toMins(service.etd);
-        if (departureMinutes < 0) {
-            departureMinutes = toMins(service.std);
-        }
-
-        if (departureMinutes >= 0) {
-            const timeDiff = currentMinutes - departureMinutes;
-            const departedYesterday = departureMinutes > (currentMinutes + 60);
-            const departedToday = timeDiff > 0 && timeDiff < 720;
-
-            if (departedToday || departedYesterday) {
-                service.departureMinutes = departureMinutes;
-                departedOutput.push(service);
-            } else {
-                upcomingOutput.push(service);
-            }
-        } else {
-            upcomingOutput.push(service);
-        }
+    
+    // If we need destination details but failed to get them, return empty array
+    if (requestedStations.toStation) {
+      return callback(null, []);
     }
-
-    departedOutput.sort((a, b) => {
-        const aDepMins = a.departureMinutes;
-        const bDepMins = b.departureMinutes;
-        if (aDepMins < 120 && bDepMins > 1320) return 1;
-        if (bDepMins < 120 && aDepMins > 1320) return -1;
-        return bDepMins - aDepMins;
-    });
-    const recentlyDepartedServices = departedOutput.slice(0, 2);
-
-    return callback(null, { upcoming: upcomingOutput, departed: recentlyDepartedServices });
+    
+    // Otherwise return the basic processed services
+    return callback(null, processedServices);
   });
 }
 
