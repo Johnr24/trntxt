@@ -44,7 +44,10 @@ input[type=submit] {
     background: #202021;
     filter: invert();
   }
-  /* Removed the .domain span filter override */
+  /* Add back the filter override for the domain spans to prevent colour inversion */
+  .domain span {
+    filter: invert(0); /* Prevent inversion for the pride flag colours */
+  }
 }
 
 /* Pride Flag colors for .shed.gay */
