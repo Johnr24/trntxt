@@ -11,7 +11,7 @@ body {
 h2 {
   text-align: left; /* Explicitly left-align header */
   margin-bottom: 1em; /* Add some space below header */
-  font-weight: normal; /* Make header text normal weight */
+  /* font-weight: normal; <-- REMOVED to restore default bolding */
 }
 
 h2 a {
@@ -69,10 +69,15 @@ input[type=submit] {
   /* input { background-color: #3c4043; border-color: #5f6368; color: #D1D1D1; } */
   /* input[type=submit] { color: #202124; background-color: #8ab4f8; border-color: #8ab4f8; } */
 
-  /* Re-invert the title link text and the pride flag colours to counteract body inversion */
-  h2 a, .dot1, .domain span {
-    filter: invert(1); /* Apply inversion again to cancel out */
+  /* Prevent the body's inversion filter from affecting the h2 header */
+  h2 {
+    filter: invert(0);
   }
+
+  /* Remove the previous attempt to re-invert header elements */
+  /* h2 a, .dot1, .domain span {
+    filter: invert(1);
+  } */
 }
 
 /* Pride Flag colors for .shed.gay */
