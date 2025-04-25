@@ -44,16 +44,17 @@ input[type=submit] {
     background: #202021;
     filter: invert();
   }
+  .domain span {
+    filter: invert(1) hue-rotate(180deg);
+  }
 }
 
-/* Rainbow colors for .shed. */
-.domain .s { color: #FF0018; }  /* Red */
-.domain .h { color: #FFA52C; }  /* Orange */
-.domain .e { color: #FFFF41; }  /* Yellow */
-.domain .d { color: #008018; }  /* Green */
-.domain .dot { color: #0000F9; }  /* Blue */
-
-/* Trans flag colors for gay */
-.domain .g { color: #5BCEFA; }  /* Trans blue */
-.domain .a { color: #F5A9B8; }  /* Trans pink */
-.domain .y { color: #FFFFFF; }  /* Trans white */
+/* Pride Flag colors for .shed.gay */
+.domain .s { color: #E40303; }  /* Red */
+.domain .h { color: #FF8C00; }  /* Orange */
+.domain .e { color: #FFED00; }  /* Yellow */
+.domain .d { color: #008026; }  /* Green */
+.domain .dot { color: #004CFF; }  /* Indigo */
+.domain .g { color: #732982; }  /* Violet */
+.domain .a { color: #E40303; }  /* Red (repeating pattern) */
+.domain .y { color: #FF8C00; }  /* Orange (repeating pattern) */
