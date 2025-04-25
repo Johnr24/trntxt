@@ -36,3 +36,4 @@ dist
 .vscode/
 *.tar.gz
 resources/stationFetcher/tmp
+.aider*
