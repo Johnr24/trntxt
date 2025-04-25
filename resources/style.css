@@ -63,7 +63,7 @@ input[type=submit] {
 
   /* Add specific dark mode colors */
   a {
-    color: #8ab4f8; /* Lighter blue for links */
+    color: #eaab2b; /* Updated primary UI color for links */
   }
 
   /* Error message needs specific color */
@@ -87,9 +87,9 @@ input[type=submit] {
   }
 
   input[type=submit] {
-    color: #202124; /* Dark text for contrast on light button */
-    background-color: #8ab4f8; /* Lighter blue background */
-    border-color: #8ab4f8;
+    color: #202124; /* Dark text for contrast on button */
+    background-color: #eaab2b; /* Updated primary UI color background */
+    border-color: #eaab2b; /* Updated primary UI color border */
   }
 
   /* Remove filter override for h2 as it's no longer needed */
