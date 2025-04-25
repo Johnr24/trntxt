@@ -69,9 +69,9 @@ input[type=submit] {
   /* input { background-color: #3c4043; border-color: #5f6368; color: #D1D1D1; } */
   /* input[type=submit] { color: #202124; background-color: #8ab4f8; border-color: #8ab4f8; } */
 
-  /* Prevent inversion for the title link text and the pride flag colours */
+  /* Re-invert the title link text and the pride flag colours to counteract body inversion */
   h2 a, .dot1, .domain span {
-    filter: invert(0);
+    filter: invert(1); /* Apply inversion again to cancel out */
   }
 }
 
