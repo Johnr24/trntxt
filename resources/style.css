@@ -8,19 +8,8 @@ body {
   margin: auto;
 }
 
-h2 {
-  text-align: left; /* Explicitly left-align header */
-  margin-bottom: 1em; /* Add some space below header */
-  font-weight: normal; /* Make header text normal weight */
-}
-
-h2 a {
-  text-decoration: none; /* Remove underline from header link */
-  color: inherit; /* Make header link inherit text color */
-}
-
 a {
-  color: #184ee7; /* Default link color */
+  color: #184ee7;
 }
 
 /* Error message */
@@ -85,20 +74,16 @@ input[type=submit] {
     background-color: #8ab4f8; /* Lighter blue background */
     border-color: #8ab4f8;
   }
-
-  /* .domain span filter override is no longer needed */
-  /* .domain span {
-    filter: invert(0);
-  } */
 }
 
 /* Pride Flag colors for .shed.gay */
 /* These colours will now work correctly in both light and dark mode */
-.domain .s { color: #E40303; }  /* Red */
-.domain .h { color: #FF8C00; }  /* Orange */
-.domain .e { color: #FFED00; }  /* Yellow */
-.domain .d { color: #008026; }  /* Green */
-.domain .dot { color: #004CFF; }  /* Indigo */
-.domain .g { color: #732982; }  /* Violet */
-.domain .a { color: #E40303; }  /* Red (repeating pattern) */
-.domain .y { color: #FF8C00; }  /* Orange (repeating pattern) */
+.domain .dot1  { color: #E40303; }
+.domain .s { color: #FF8C00; } 
+.domain .h { color: #FFED00; }  
+.domain .e { color: #008026; }  
+.domain .d { color: #004CFF; }  
+.domain .dot2 { color: #732982; }  
+.domain .g { color: #5BCEFA; }  
+.domain .a { color: #FFFFFF; }  
+.domain .y { color: #F5A9B8; }  
