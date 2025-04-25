@@ -57,26 +57,44 @@ input[type=submit] {
 @media (prefers-color-scheme: dark) {
   body {
     background: #202021;
-    /* color: #D1D1D1; <-- REMOVED */
-    filter: invert(1); /* Re-add inversion for dark mode */
+    color: #D1D1D1; /* Light default text for dark background */
+    /* filter: invert(1); <-- REMOVED */
   }
 
-  /* Remove specific dark mode colors as inversion handles it */
-  /* a { color: #8ab4f8; } */
-  /* .e { color: #f28b82; } */
-  /* .g { color: #70757a; } */
-  /* hr { border-color: #5f6368; } */
-  /* input { background-color: #3c4043; border-color: #5f6368; color: #D1D1D1; } */
-  /* input[type=submit] { color: #202124; background-color: #8ab4f8; border-color: #8ab4f8; } */
+  /* Add specific dark mode colors */
+  a {
+    color: #8ab4f8; /* Lighter blue for links */
+  }
 
-  /* Prevent the body's inversion filter from affecting the h2 header */
-  h2 {
+  /* Error message needs specific color */
+  .e {
+    color: #f28b82; /* Lighter red for errors */
+  }
+
+  /* Grey text needs specific color */
+  .g {
+    color: #9aa0a6; /* Lighter grey for secondary text */
+  }
+
+  hr {
+    border-color: #5f6368; /* Darker border for HR */
+  }
+
+  input {
+    background-color: #3c4043; /* Darker background for inputs */
+    border-color: #5f6368; /* Darker border for inputs */
+    color: #D1D1D1; /* Light text for inputs */
+  }
+
+  input[type=submit] {
+    color: #202124; /* Dark text for contrast on light button */
+    background-color: #8ab4f8; /* Lighter blue background */
+    border-color: #8ab4f8;
+  }
+
+  /* Remove filter override for h2 as it's no longer needed */
+  /* h2 {
     filter: invert(0);
-  }
-
-  /* Remove the previous attempt to re-invert header elements */
-  /* h2 a, .dot1, .domain span {
-    filter: invert(1);
   } */
 }
 
