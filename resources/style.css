@@ -44,9 +44,7 @@ input[type=submit] {
     background: #202021;
     filter: invert();
   }
-  .domain span {
-    filter: invert(1) hue-rotate(180deg);
-  }
+  /* Removed the .domain span filter override */
 }
 
 /* Pride Flag colors for .shed.gay */
