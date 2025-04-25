@@ -42,15 +42,47 @@ input[type=submit] {
 @media (prefers-color-scheme: dark) {
   body {
     background: #202021;
-    filter: invert();
+    color: #D1D1D1; /* Light text for dark background */
+    /* filter: invert(); <-- REMOVED */
   }
-  /* Add back the filter override for the domain spans to prevent colour inversion */
-  .domain span {
-    filter: invert(0); /* Prevent inversion for the pride flag colours */
+
+  a {
+    color: #8ab4f8; /* Lighter blue for links */
   }
+
+  /* Error message */
+  .e {
+    color: #f28b82; /* Lighter red for errors */
+  }
+
+  .g {
+    color: #70757a; /* Lighter grey for secondary text */
+  }
+
+  hr {
+    border-color: #5f6368; /* Darker border for HR */
+  }
+
+  input {
+    background-color: #3c4043; /* Darker background for inputs */
+    border-color: #5f6368; /* Darker border for inputs */
+    color: #D1D1D1; /* Light text for inputs */
+  }
+
+  input[type=submit] {
+    color: #202124; /* Dark text for contrast on light button */
+    background-color: #8ab4f8; /* Lighter blue background */
+    border-color: #8ab4f8;
+  }
+
+  /* .domain span filter override is no longer needed */
+  /* .domain span {
+    filter: invert(0);
+  } */
 }
 
 /* Pride Flag colors for .shed.gay */
+/* These colours will now work correctly in both light and dark mode */
 .domain .s { color: #E40303; }  /* Red */
 .domain .h { color: #FF8C00; }  /* Orange */
 .domain .e { color: #FFED00; }  /* Yellow */
